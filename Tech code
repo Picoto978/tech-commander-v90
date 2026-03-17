@@ -1,0 +1,224 @@
+@echo off
+title Lancement de Tech Commander...
+color 0A
+
+:: LANCEUR BLINDE BATCH -> POWERSHELL
+:: Ce code lit ce fichier .bat et execute uniquement la partie PowerShell en dessous
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$code = Get-Content '%~f0' -Raw; $start = $code.IndexOf('<'+'# DEBUT_POWERSHELL #'+'>'); if ($start -ge 0) { iex $code.Substring($start) } else { Write-Host 'Erreur de lecture du code PowerShell.' }"
+
+:: Si le script plante ou se ferme bizarrement, la fenetre restera ouverte pour voir l'erreur
+if %errorlevel% neq 0 (
+    echo.
+    echo [!] UNE ERREUR EST SURVENUE LORS DU LANCEMENT DE L'INTERFACE.
+    pause
+)
+exit /b
+
+<# DEBUT_POWERSHELL #>
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName Microsoft.VisualBasic
+
+# ========================================================================
+# CONFIGURATION FENETRE
+# ========================================================================
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "TECH-COMMANDER v176 [PYAUTOGUI EDITION]"
+$Form.Size = New-Object System.Drawing.Size(1350, 980)
+$Form.StartPosition = "CenterScreen"
+$Form.BackColor = "#050505"
+$Form.ForeColor = "#FFFFFF"
+$Form.FormBorderStyle = "FixedSingle"
+$Form.MaximizeBox = $false
+
+$FontTitle  = New-Object System.Drawing.Font("Consolas", 32, [System.Drawing.FontStyle]::Bold)
+$FontHeader = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$FontBtn    = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$FontDesc   = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+$FontMon    = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Bold)
+$FontIA     = New-Object System.Drawing.Font("Consolas", 20)
+
+$C_Cyan = "#00E5FF"; $C_Orange = "#FF9100"; $C_Green = "#00E676"; $C_Red = "#FF1744"; $C_Yellow = "#FFEA00"; $C_Purple = "#D500F9"; $C_Blue = "#2962FF"
+
+# ========================================================================
+# EN-TETE : LAPIN & IA
+# ========================================================================
+$Rabbit = New-Object System.Windows.Forms.Label
+$Rabbit.Text = "      (\        /)`n      ( \      / )`n      (  O    O  )`n      (    V     )`n      /          \`n     /            \"
+$Rabbit.Location = New-Object System.Drawing.Point(30, 20); $Rabbit.Size = New-Object System.Drawing.Size(300, 180)
+$Rabbit.Font = New-Object System.Drawing.Font("Consolas", 18, [System.Drawing.FontStyle]::Bold); $Rabbit.ForeColor = $C_Green
+$Form.Controls.Add($Rabbit)
+
+$LblTitle = New-Object System.Windows.Forms.Label
+$LblTitle.Text = "N E U R A L   C O M M A N D E R"
+$LblTitle.Location = New-Object System.Drawing.Point(350, 30); $LblTitle.Size = New-Object System.Drawing.Size(800, 60)
+$LblTitle.Font = $FontTitle; $LblTitle.ForeColor = $C_Cyan; $LblTitle.TextAlign = "MiddleCenter"
+$Form.Controls.Add($LblTitle)
+
+$InIA = New-Object System.Windows.Forms.TextBox
+$InIA.Location = New-Object System.Drawing.Point(50, 220); $InIA.Size = New-Object System.Drawing.Size(950, 50)
+$InIA.BackColor = "#080808"; $InIA.ForeColor = "White"; $InIA.Font = $FontIA; $InIA.BorderStyle = "FixedSingle"
+$Form.Controls.Add($InIA)
+
+$BtnIA = New-Object System.Windows.Forms.Button
+$BtnIA.Text = "EXECUTE (MOUSE)"
+$BtnIA.Location = New-Object System.Drawing.Point(1010, 220); $BtnIA.Size = New-Object System.Drawing.Size(280, 50)
+$BtnIA.BackColor = "#150015"; $BtnIA.ForeColor = $C_Purple; $BtnIA.FlatStyle = "Flat"; $BtnIA.Font = $FontHeader
+$Form.Controls.Add($BtnIA)
+
+# ========================================================================
+# ZONE DESCRIPTION DYNAMIQUE
+# ========================================================================
+$DescPanel = New-Object System.Windows.Forms.Panel
+$DescPanel.Location = New-Object System.Drawing.Point(30, 810); $DescPanel.Size = New-Object System.Drawing.Size(1280, 40); $DescPanel.BackColor = "#101010"
+$Form.Controls.Add($DescPanel)
+
+$script:LblDesc = New-Object System.Windows.Forms.Label
+$script:LblDesc.Text = "PRET. SURVOLEZ UNE FONCTION..."
+$script:LblDesc.Dock = "Fill"; $script:LblDesc.Font = $FontDesc; $script:LblDesc.ForeColor = $C_Yellow; $script:LblDesc.TextAlign = "MiddleCenter"
+$DescPanel.Controls.Add($script:LblDesc)
+
+# --- LE CERVEAU PYAUTOGUI ---
+$Script:RunIA = {
+    if ($InIA.Text -ne "") {
+        $T = $InIA.Text -replace "'", "" -replace '"', ""
+        $InIA.Text = ""
+        
+        $script:LblDesc.Text = "IA EN REFLEXION... VEUILLEZ PATIENTER."
+        $script:LblDesc.ForeColor = $C_Orange
+        $Form.Refresh()
+
+        # Prompt ultra securise avec regles de timing strictes
+        $Brain = "Write a Python script to automate this: '$T'. RULES: 1. Use ONLY 'pyautogui' and 'time'. 2. MUST include 'import pyautogui, time'. 3. MUST start with 'time.sleep(1)'. 4. MUST add 'time.sleep(2)' after opening any app. 5. Output ONLY the raw Python code. NO explanations, NO markdown tags."
+        
+        $AiResponse = (ollama run llama3.1 "$Brain") -join "`n"
+        
+        # Filtre intelligent pour extraire uniquement le code Python (avec code hexa \x60 pour eviter la coupure)
+        $Code = $AiResponse
+        if ($AiResponse -match '(?s)\x60\x60\x60(?:python)?(.*?)\x60\x60\x60') {
+            $Code = $matches[1]
+        }
+        $Code = $Code.Trim()
+        
+        if ($Code -ne "") {
+            $script:LblDesc.Text = "EXECUTION DU SCRIPT PYAUTOGUI..."
+            $script:LblDesc.ForeColor = $C_Green
+            $Form.Refresh()
+            
+            $PyFile = "$env:TEMP\ai_mouse_action.py"
+            $Code | Out-File -FilePath $PyFile -Encoding UTF8
+            
+            # Execution avec fenetre de controle rouge si ca plante
+            $CmdArgs = "/c title IA_MOUSE && color 0A && echo === SCRIPT PYTHON === && type `"$PyFile`" && echo. && echo =================== && python `"$PyFile`" || (color 4F && echo. && echo ERREUR PYTHON DETECTEE !) & pause"
+            Start-Process cmd.exe -ArgumentList $CmdArgs
+        } else {
+            $script:LblDesc.Text = "ERREUR: L'IA N'A RIEN REPONDU."
+            $script:LblDesc.ForeColor = $C_Red
+        }
+    }
+}
+
+$BtnIA.Add_Click($Script:RunIA)
+$InIA.Add_KeyDown({ if ($_.KeyCode -eq "Enter") { & $Script:RunIA } })
+
+# ========================================================================
+# FONCTIONS METIER
+# ========================================================================
+function Create-ExcelDevis {
+    try {
+        $ClientName = [Microsoft.VisualBasic.Interaction]::InputBox("Entrez le Nom du Client :", "Nouveau Devis", "")
+        if ($ClientName -eq "") { $ClientName = "CLIENT DIVERS" }
+        $Excel = New-Object -ComObject Excel.Application; $Excel.Visible = $true; $Wb = $Excel.Workbooks.Add()
+        $ShData = $Wb.Worksheets.Add(); $ShData.Name = "Base_Articles"
+        $ShData.Range("A1").Value2 = "PRESTATION"; $ShData.Range("B1").Value2 = "PRIX"
+        $ShData.Range("A2").Value2 = "Forfait Reinstallation Windows"; $ShData.Range("B2").Value2 = 80
+        $ShData.Range("A3").Value2 = "Nettoyage Virus / Malware"; $ShData.Range("B3").Value2 = 65
+        $ShData.Range("A4").Value2 = "Recuperation de Donnees"; $ShData.Range("B4").Value2 = 90
+        $Sh = $Wb.Worksheets.Item(2); $Sh.Name = "Devis_Jamie"; $Sh.Select()
+        $Sh.Range("A1").Value2 = "ENTREPRISE JAMIE"; $Sh.Range("A1").Font.Size = 24; $Sh.Range("A1").Font.Bold = $true
+        $Sh.Range("E1").Value2 = "DEVIS DESTINE A :"; $Sh.Range("E1").Font.Bold = $true
+        $Sh.Range("E2").Value2 = $ClientName; $Sh.Range("E2").Font.Size = 14; $Sh.Range("E2").Font.Color = 0xFF0000
+        $Sh.Range("E6").Value2 = "DATE :"; $Sh.Range("F6").Formula = "=TODAY()"
+        $Sh.Range("A12").Value2 = "Prestation"; $Sh.Range("B12").Value2 = "Qte"; $Sh.Range("C12").Value2 = "Prix Unit."; $Sh.Range("D12").Value2 = "Total HT"
+        $Sh.Range("A12:D12").Interior.Color = 0x333333; $Sh.Range("A12:D12").Font.Color = 0xFFFFFF
+        for($i=13; $i -le 35; $i++) {
+            $CellA = "A" + $i; $CellB = "B" + $i; $CellC = "C" + $i; $CellD = "D" + $i
+            $Range = $Sh.Range($CellA); $Range.Validation.Delete()
+            $Range.Validation.Add([int]3, [int]1, [int]1, '=Base_Articles!$A$2:$A$10')
+            $Sh.Range($CellC).Formula = "=IFERROR(VLOOKUP(" + $CellA + ",Base_Articles!A:B,2,FALSE),0)"
+            $Sh.Range($CellD).Formula = "=IF(OR(" + $CellB + "="""", " + $CellC + "=""""), """", " + $CellB + "*" + $CellC + ")"
+        }
+    } catch { [System.Windows.Forms.MessageBox]::Show("Erreur Excel. Est-il bien installe ?") }
+}
+
+function Run-Cmd($t, $c) { Start-Process cmd -ArgumentList "/c title $t && color 0B && echo --- $t --- && echo. && $c && echo. && pause" }
+
+function Add-Section($txt, $x, $y, $col) {
+    $l = New-Object System.Windows.Forms.Label; $l.Text = $txt; $l.Location = New-Object System.Drawing.Point($x, $y)
+    $l.Size = New-Object System.Drawing.Size(380, 30); $l.Font = $FontHeader; $l.ForeColor = $col
+    $Line = New-Object System.Windows.Forms.Label; $Line.BackColor = $col
+    $newY = [int]($y + 32); $Line.Location = New-Object System.Drawing.Point($x, $newY); $Line.Size = New-Object System.Drawing.Size(380, 2)
+    $Form.Controls.Add($l); $Form.Controls.Add($Line)
+}
+
+function Add-Btn($txt, $x, $y, $desc, $cmd, $textColor="White") {
+    $b = New-Object System.Windows.Forms.Button; $b.Text = $txt.ToUpper(); $b.Location = New-Object System.Drawing.Point($x, $y)
+    $b.Size = New-Object System.Drawing.Size(380, 42); $b.BackColor = "#151515"
+    $b.ForeColor = [System.Drawing.ColorTranslator]::FromHtml($textColor); $b.FlatStyle = "Flat"; $b.Font = $FontBtn; $b.FlatAppearance.BorderSize = 0
+    $b.Tag = @{ Desc=$desc; OriginColor=$textColor }
+    $b.Add_MouseEnter({ $script:LblDesc.Text = $this.Tag.Desc; $this.ForeColor = "#00E5FF" })
+    $b.Add_MouseLeave({ $script:LblDesc.Text = "..."; $this.ForeColor = [System.Drawing.ColorTranslator]::FromHtml($this.Tag.OriginColor) })
+    $b.Add_Click($cmd); $Form.Controls.Add($b)
+}
+
+$X1=40; $X2=480; $X3=920
+
+Add-Section "AUTOMATION & SYSTEME" $X1 300 $C_Purple
+Add-Btn "Installer Pack Logiciels" $X1 345 "Installe Chrome, VLC, 7zip." { Start-Process cmd -ArgumentList "/c winget install -e --id Google.Chrome && winget install -e --id VideoLAN.VLC && pause" }
+Add-Btn "Sauvegarder Pilotes" $X1 390 "Backup Drivers sur Bureau." { Run-Cmd "BACKUP" "mkdir %userprofile%\Desktop\Drivers_Backup & dism /online /export-driver /destination:%userprofile%\Desktop\Drivers_Backup" }
+
+Add-Section "MAINTENANCE" $X1 480 $C_Orange
+Add-Btn "Sante des Disques" $X1 525 "SMART Status." { Start-Process powershell -ArgumentList "-NoExit", "Get-PhysicalDisk | Select FriendlyName, HealthStatus | ft" }
+Add-Btn "Nettoyage Temps" $X1 570 "Vide %TEMP%." { Start-Process powershell -ArgumentList "Remove-Item -Path '$env:TEMP\*' -Recurse -Force" -Verb RunAs }
+Add-Btn "Reparer Windows (SFC)" $X1 615 "SFC Scannow." { Run-Cmd "SFC" "sfc /scannow" }
+
+Add-Section "RESEAU & INTERNET" $X2 300 $C_Cyan
+Add-Btn "SelfishNet (Admin)" $X2 345 "Gestion Bande Passante." { 
+    $Dir = "C:\Program Files (x86)\nov0caina\SelfishNetV3"
+    $Exe = Get-ChildItem -Path $Dir -Filter "*.exe" | Select-Object -First 1
+    if($Exe){ Start-Process $Exe.FullName -WorkingDirectory $Dir -Verb RunAs }
+}
+Add-Btn "Reset TCP/IP + DNS" $X2 390 "Reset Reseau." { Run-Cmd "RESET" "netsh winsock reset && ipconfig /flushdns" }
+Add-Btn "Ping Test Google" $X2 435 "Ping 8.8.8.8." { Start-Process cmd -ArgumentList "/c ping 8.8.8.8 -t" }
+Add-Btn "Cartes Reseau" $X2 480 "NCPA.CPL." { Start-Process ncpa.cpl }
+
+Add-Section "ADMINISTRATION" $X3 300 $C_Green
+Add-Btn ">> GENERER DEVIS (BDD) <<" $X3 345 "Excel Intelligent." { Create-ExcelDevis } $C_Green
+Add-Btn "Gestionnaire Taches" $X3 390 "Taskmgr." { Start-Process taskmgr } "#AAA"
+
+Add-Section "ACTIONS CRITIQUES" $X3 480 $C_Red
+Add-Btn "Reparer Spooler Imp." $X3 525 "Fix Impression." { Run-Cmd "SPOOLER" "net stop spooler && net start spooler" } "#FF5252"
+Add-Btn "Activer Super-Admin" $X3 570 "Compte Admin." { Run-Cmd "ADMIN" "net user administrateur /active:yes" } "#FF5252"
+
+# ========================================================================
+# MONITORING SYSTEME & BOUTONS ALIMENTATION
+# ========================================================================
+$MonPanel = New-Object System.Windows.Forms.Panel; $MonPanel.Location = New-Object System.Drawing.Point(30, 750); $MonPanel.Size = New-Object System.Drawing.Size(1280, 45); $MonPanel.BackColor = "#0F0F0F"; $Form.Controls.Add($MonPanel)
+$LblCpu = New-Object System.Windows.Forms.Label; $LblCpu.Location=New-Object System.Drawing.Point(10,10); $LblCpu.Size=New-Object System.Drawing.Size(200,25); $LblCpu.Font=$FontMon; $LblCpu.ForeColor=$C_Green; $MonPanel.Controls.Add($LblCpu)
+$LblSess = New-Object System.Windows.Forms.Label; $LblSess.Location=New-Object System.Drawing.Point(600,10); $LblSess.Size=New-Object System.Drawing.Size(650,25); $LblSess.Font=$FontMon; $LblSess.ForeColor=$C_Cyan; $LblSess.TextAlign="MiddleRight"; $MonPanel.Controls.Add($LblSess)
+
+$CpuCounter = New-Object System.Diagnostics.PerformanceCounter("Processor", "% Processor Time", "_Total")
+$Timer = New-Object System.Windows.Forms.Timer; $Timer.Interval = 1000
+$Timer.Add_Tick({
+    $cpuVal = [math]::Round($CpuCounter.NextValue(), 0)
+    $LblCpu.Text = "CPU: $cpuVal %"; $LblSess.Text = "USER : " + $env:USERNAME.ToUpper() + " | AI ONLINE"
+}); $Timer.Start()
+
+function Add-Pow($t,$x,$c,$cmd){
+    $b=New-Object System.Windows.Forms.Button; $b.Text=$t; $b.Location=New-Object System.Drawing.Point($x,870); $b.Size=New-Object System.Drawing.Size(160,50); $b.BackColor=[System.Drawing.ColorTranslator]::FromHtml($c); $b.ForeColor="White"; $b.FlatStyle="Flat"; $b.Font=$FontBtn; $b.FlatAppearance.BorderSize=0;
+    $b.Add_Click({if([System.Windows.Forms.MessageBox]::Show($t,"Confirm","YesNo")-eq"Yes"){Invoke-Expression $cmd}}); $Form.Controls.Add($b)
+}
+$Ext=New-Object System.Windows.Forms.Button; $Ext.Text="QUITTER"; $Ext.Location=New-Object System.Drawing.Point(30,870); $Ext.Size=New-Object System.Drawing.Size(160,50); $Ext.BackColor="#222"; $Ext.ForeColor="White"; $Ext.FlatStyle="Flat"; $Ext.Font=$FontBtn; $Ext.FlatAppearance.BorderSize=0; $Ext.Add_Click({$Form.Close()}); $Form.Controls.Add($Ext)
+Add-Pow "REBOOT" 980 $C_Blue "Restart-Computer -Force"; Add-Pow "ARRET" 1150 $C_Red "Stop-Computer -Force"
+
+$Form.Add_Shown({$Form.Activate()}); [void] $Form.ShowDialog()
