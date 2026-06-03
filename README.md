@@ -1,3 +1,3 @@
 Tech Commander v176 [PyAutoGUI]
 
-utilitaire d'administration système tout-en-un doté d'une interface graphique (GUI) développée en PowerShell. Il combine des outils de maintenance Windows, la génération de documents automatisée et l'intégration de l'intelligence artificielle en local pour générer et exécuter des macros de contrôle (souris/clavier) à la volée. 
+An all-in-one system administration utility featuring a PowerShell-based GUI. It combines Windows maintenance tools, automated document generation, and local AI integration to generate and execute control macros (mouse/keyboard) on the fly.
